@@ -1,0 +1,395 @@
+{
+  "summary": {
+    "total_cases": 5,
+    "passed": 5,
+    "success_rate": 1.0,
+    "avg_iterations": 2.8,
+    "avg_tool_calls": 4.2,
+    "avg_tool_recall": 1.0,
+    "avg_judge_score": 8.6,
+    "failed_cases": []
+  },
+  "details": [
+    {
+      "case_id": "case_001_basic_weather_attraction",
+      "input": "成都今天天气怎么样，有哪些历史古迹？",
+      "expect_itinerary": false,
+      "rule_pass": true,
+      "tool_metrics": {
+        "tool_recall": 1.0,
+        "tool_precision": 1.0,
+        "called_tools": [
+          "get_weather",
+          "search_attractions"
+        ],
+        "missing_tools": [],
+        "misused_tools": [],
+        "pass": true
+      },
+      "arg_metrics": {
+        "arg_checks": [
+          {
+            "tool": "get_weather",
+            "param": "city",
+            "expected": "成都",
+            "actual": "成都",
+            "pass": true
+          },
+          {
+            "tool": "search_attractions",
+            "param": "city",
+            "expected": "成都",
+            "actual": "成都",
+            "pass": true
+          }
+        ],
+        "pass": true
+      },
+      "efficiency": {
+        "iterations": 2,
+        "tool_calls": 2,
+        "max_allowed": 3,
+        "pass": true
+      },
+      "schema_metrics": {
+        "pass": true,
+        "note": "非行程用例，要求直接文本回答"
+      },
+      "budget_metrics": {
+        "pass": true,
+        "issues": []
+      },
+      "judge": {
+        "check_results": [
+          {
+            "checkpoint": "回答包含成都天气",
+            "passed": true,
+            "reason": "回答中明确列出了10月1日小雨、14~19℃、微风、降水概率80%，以及10月2日阴、15~22℃、微风，与工具数据完全一致。"
+          },
+          {
+            "checkpoint": "推荐了历史古迹类景点",
+            "passed": true,
+            "reason": "推荐了武侯祠、杜甫草堂、宽窄巷子、锦里古街，均标注为历史古迹，且门票、开放时间、评分、建议游玩时长与工具数据一致。"
+          }
+        ],
+        "weaknesses": [
+          "天气部分仅提供了10月1-2日的数据，未说明今天具体是哪一天，若用户问的是10月1日，则已覆盖，但若今天不是这两天，则存在时间错位风险。",
+          "景点简介（如武侯祠为君臣合祀祠庙、杜甫草堂为杜甫故居等）虽属常识性描述，但并非工具数据直接提供，可能被质疑为额外补充，但未影响核心数据准确性。",
+          "小贴士中建议宽窄巷子适合晚上逛，但工具数据未提供夜间特色，属于合理推测，但非严格依据。"
+        ],
+        "suspected_hallucinations": [
+          "景点简介中的具体描述（如“中国唯一一座君臣合祀祠庙”“园林清幽雅致”等）并非工具数据直接提供，但属于常识性背景，且未涉及具体数字，不构成编造。",
+          "小贴士中“宽窄巷子适合晚上逛”无工具数据支持，但为合理建议，非具体数字，不视为编造。"
+        ],
+        "score": 9,
+        "summary": "回答完全满足两个检查点，所有具体数字均与工具数据一致，无矛盾，仅存在轻微非数据性补充，整体质量高。"
+      },
+      "judge_pass_rate": 1.0,
+      "overall_pass": true
+    },
+    {
+      "case_id": "case_002_full_itinerary",
+      "input": "帮我规划成都2日游，预算2000，喜欢历史古迹",
+      "expect_itinerary": true,
+      "rule_pass": true,
+      "tool_metrics": {
+        "tool_recall": 1.0,
+        "tool_precision": 1.0,
+        "called_tools": [
+          "calculate_budget",
+          "calculate_route",
+          "get_weather",
+          "search_attractions",
+          "search_hotels",
+          "search_restaurants"
+        ],
+        "missing_tools": [],
+        "misused_tools": [],
+        "pass": true
+      },
+      "arg_metrics": {
+        "arg_checks": [
+          {
+            "tool": "search_attractions",
+            "param": "city",
+            "expected": "成都",
+            "actual": "成都",
+            "pass": true
+          }
+        ],
+        "pass": true
+      },
+      "efficiency": {
+        "iterations": 4,
+        "tool_calls": 7,
+        "max_allowed": 6,
+        "pass": true
+      },
+      "schema_metrics": {
+        "pass": true,
+        "missing_fields": [],
+        "day_issues": []
+      },
+      "budget_metrics": {
+        "pass": false,
+        "issues": [
+          "分项费用合计1156与总预算2000差异过大"
+        ],
+        "parts_sum": 1156.0,
+        "total": 2000.0
+      },
+      "judge": {
+        "check_results": [
+          {
+            "checkpoint": "生成了2天的行程",
+            "passed": true,
+            "reason": "行程包含2025-01-20和2025-01-21两天，每天均有详细活动安排。"
+          },
+          {
+            "checkpoint": "每天有多个活动且按时间排序",
+            "passed": true,
+            "reason": "第一天有6个活动（09:00-20:00），第二天有6个活动（08:00-18:30），均按时间顺序排列。"
+          },
+          {
+            "checkpoint": "历史古迹类景点占比高",
+            "passed": true,
+            "reason": "第一天包含武侯祠、锦里古街、杜甫草堂、宽窄巷子四个历史古迹景点；第二天有春熙路/太古里（非古迹），但整体历史古迹占比约67%，符合要求。"
+          },
+          {
+            "checkpoint": "总预算不超过2000或明确说明超支",
+            "passed": true,
+            "reason": "预算汇总显示总费用1356元，未超过2000元，且剩余644元，无超支。"
+          }
+        ],
+        "weaknesses": [
+          "第二天主题为'市区休闲'，但包含春熙路/太古里等非历史古迹景点，历史古迹占比略降，但整体仍满足要求。",
+          "行程日期为2025-01-20至2025-01-21，但天气预报数据为2025-10-01和10-02，存在日期不匹配，但未影响预算和行程安排。",
+          "预算汇总中住宿费656元，但行程中两晚住宿均为328元/晚，合计656元，计算正确，但未提及酒店预订日期与行程日期的一致性。"
+        ],
+        "suspected_hallucinations": [],
+        "score": 9,
+        "summary": "行程完全满足所有检查点，数据均来自工具返回，无编造，仅存在轻微日期不匹配瑕疵，但整体质量高。"
+      },
+      "judge_pass_rate": 1.0,
+      "overall_pass": true
+    },
+    {
+      "case_id": "case_003_intercity_transport",
+      "input": "我从北京去成都玩3天，怎么去比较好，预算3000",
+      "expect_itinerary": true,
+      "rule_pass": true,
+      "tool_metrics": {
+        "tool_recall": 1.0,
+        "tool_precision": 1.0,
+        "called_tools": [
+          "calculate_budget",
+          "get_weather",
+          "search_attractions",
+          "search_hotels",
+          "search_restaurants",
+          "search_transport"
+        ],
+        "missing_tools": [],
+        "misused_tools": [],
+        "pass": true
+      },
+      "arg_metrics": {
+        "arg_checks": [
+          {
+            "tool": "search_transport",
+            "param": "departure",
+            "expected": "北京",
+            "actual": "北京",
+            "pass": true
+          },
+          {
+            "tool": "search_transport",
+            "param": "destination",
+            "expected": "成都",
+            "actual": "成都",
+            "pass": true
+          }
+        ],
+        "pass": true
+      },
+      "efficiency": {
+        "iterations": 4,
+        "tool_calls": 6,
+        "max_allowed": 6,
+        "pass": true
+      },
+      "schema_metrics": {
+        "pass": true,
+        "missing_fields": [],
+        "day_issues": []
+      },
+      "budget_metrics": {
+        "pass": false,
+        "issues": [
+          "第2天活动费用合计245与daily_budget465差异过大",
+          "第3天活动费用合计864与daily_budget1390差异过大"
+        ],
+        "parts_sum": 2783.0,
+        "total": 3000.0
+      },
+      "judge": {
+        "check_results": [
+          {
+            "checkpoint": "对比了高铁和飞机",
+            "passed": true,
+            "reason": "行程中列出了高铁G89（778.5元）和两个航班（CA4112 1280元、3U8886 980元），并给出了推荐选择，符合检查点要求。"
+          },
+          {
+            "checkpoint": "包含住宿安排",
+            "passed": true,
+            "reason": "行程中安排了入住成都春熙路全季酒店，价格为328元/晚，住宿总费用656元（2晚），与工具数据一致。"
+          },
+          {
+            "checkpoint": "生成3天行程",
+            "passed": true,
+            "reason": "行程覆盖2025-02-10至2025-02-12共3天，每天有详细活动安排，包括交通、景点、餐饮等。"
+          }
+        ],
+        "weaknesses": [
+          "行程中未明确提及返程交通的具体车次或航班，仅写“乘坐高铁返回北京”，但费用与去程一致，可能不够具体。",
+          "预算汇总中市内交通费200元未在每日行程中体现，缺乏具体安排依据。",
+          "第三天行程安排较满，从杜甫草堂到春熙路再到返程，时间衔接略显紧张，且未考虑午餐后到高铁站的交通时间。"
+        ],
+        "suspected_hallucinations": [
+          "无。所有具体数字（如交通费用、住宿价格、门票、餐饮人均等）均可在工具数据中找到依据，或为简单求和计算。"
+        ],
+        "score": 8,
+        "summary": "行程满足所有检查点，数据均有依据，但存在返程车次不具体、市内交通未细化等轻微瑕疵，故评8分。"
+      },
+      "judge_pass_rate": 1.0,
+      "overall_pass": true
+    },
+    {
+      "case_id": "case_004_food_focus",
+      "input": "去成都玩，主要想吃火锅和小吃，推荐一下",
+      "expect_itinerary": false,
+      "rule_pass": true,
+      "tool_metrics": {
+        "tool_recall": 1.0,
+        "tool_precision": 1.0,
+        "called_tools": [
+          "search_attractions",
+          "search_restaurants"
+        ],
+        "missing_tools": [],
+        "misused_tools": [],
+        "pass": true
+      },
+      "arg_metrics": {
+        "arg_checks": [
+          {
+            "tool": "search_restaurants",
+            "param": "city",
+            "expected": "成都",
+            "actual": "成都",
+            "pass": true
+          }
+        ],
+        "pass": true
+      },
+      "efficiency": {
+        "iterations": 3,
+        "tool_calls": 6,
+        "max_allowed": 4,
+        "pass": true
+      },
+      "schema_metrics": {
+        "pass": true,
+        "note": "非行程用例，要求直接文本回答"
+      },
+      "budget_metrics": {
+        "pass": true,
+        "issues": []
+      },
+      "judge": {
+        "check_results": [
+          {
+            "checkpoint": "推荐了火锅",
+            "passed": true,
+            "reason": "推荐了蜀大侠火锅，人均120元，评分4.8，招牌菜大刀腰片、极品鹅肠，均来自工具数据。"
+          },
+          {
+            "checkpoint": "推荐了小吃",
+            "passed": true,
+            "reason": "推荐了龙抄手（春熙路店）人均35元、陈麻婆豆腐人均60元、饕林餐厅人均80元，均来自工具数据。"
+          },
+          {
+            "checkpoint": "包含人均价格",
+            "passed": true,
+            "reason": "所有推荐餐厅均包含人均价格：蜀大侠120元、龙抄手35元、陈麻婆豆腐60元、饕林餐厅80元。"
+          }
+        ],
+        "weaknesses": [
+          "景点推荐与美食需求关联性较弱，且部分景点（如杜甫草堂）未在行程中体现，略显冗余。",
+          "行程安排中未明确标注小吃推荐的具体地点（如陈麻婆豆腐、饕林餐厅未纳入行程），可能造成用户困惑。",
+          "回答中“龙抄手就在这附近”的表述，工具数据中未明确龙抄手与春熙路的位置关系，但春熙路为购物点，且龙抄手店名为春熙路店，可合理推断，不算编造，但表述稍显随意。"
+        ],
+        "suspected_hallucinations": [],
+        "score": 8,
+        "summary": "回答满足所有检查点，数据均来自工具，无编造，但行程安排与美食推荐整合不够紧密，存在轻微瑕疵。"
+      },
+      "judge_pass_rate": 1.0,
+      "overall_pass": true
+    },
+    {
+      "case_id": "case_005_no_tool_needed",
+      "input": "你好，你能做什么？",
+      "expect_itinerary": false,
+      "rule_pass": true,
+      "tool_metrics": {
+        "tool_recall": 1.0,
+        "tool_precision": 1.0,
+        "called_tools": [],
+        "missing_tools": [],
+        "misused_tools": [],
+        "pass": true
+      },
+      "arg_metrics": {
+        "arg_checks": [],
+        "pass": true
+      },
+      "efficiency": {
+        "iterations": 1,
+        "tool_calls": 0,
+        "max_allowed": 2,
+        "pass": true
+      },
+      "schema_metrics": {
+        "pass": true,
+        "note": "非行程用例，要求直接文本回答"
+      },
+      "budget_metrics": {
+        "pass": true,
+        "issues": []
+      },
+      "judge": {
+        "check_results": [
+          {
+            "checkpoint": "介绍了自身能力",
+            "passed": true,
+            "reason": "回答详细列出了交通、住宿、景点、美食、天气、行程规划等能力，并给出了示例提问，符合要求。"
+          },
+          {
+            "checkpoint": "没有强行规划行程",
+            "passed": true,
+            "reason": "回答仅介绍能力并邀请用户提出需求，未主动规划任何具体行程，符合要求。"
+          }
+        ],
+        "weaknesses": [
+          "回答中未提及任何工具数据来源，但本次未调用工具，因此不构成数据编造，但缺乏对数据来源的说明。",
+          "回答略显模板化，未体现对用户个性化需求的主动询问，但整体无硬伤。"
+        ],
+        "suspected_hallucinations": [],
+        "score": 9,
+        "summary": "回答全面介绍自身能力且未强行规划行程，完全满足检查点，无数据编造，仅因未调用工具而缺少数据支撑的细节，故扣1分。"
+      },
+      "judge_pass_rate": 1.0,
+      "overall_pass": true
+    }
+  ]
+}

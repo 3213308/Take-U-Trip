@@ -1,0 +1,54 @@
+# ===== IDE =====
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ===== Virtual Environment =====
+backend/.venv/
+venv/
+env/
+
+# ===== Environment / Secrets =====
+.env
+.env.local
+.env.*.local
+
+# ===== Cache =====
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# ===== Database (运行时生成) =====
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# ===== Node / Frontend =====
+node_modules/
+dist/
+.next/
+*.log
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+
+# ===== Project-specific =====
+# 评测报告（按需决定是否提交）
+# baseline_report.json
+# eval_report.json
+# multi_report.json
+# comparison_report.md

@@ -18,6 +18,8 @@ class Activity(BaseModel):
     category: str = Field(description="活动分类：交通/景点/餐饮/住宿/自由活动")
     cost: float = Field(default=0.0, description="该活动费用（元），免费为0")
     notes: str = Field(default="", description="备注，如'需提前预约'、'建议穿舒适鞋子'")
+    lng: float | None = Field(default=None, description="活动地点经度，工具返回了就填，没有留空")
+    lat: float | None = Field(default=None, description="活动地点纬度，工具返回了就填，没有留空")
 
 
 class DayPlan(BaseModel):

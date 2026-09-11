@@ -6,83 +6,69 @@ import json
 import logging
 import re
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.prompts import ChatPromptTemplate
 
-from app.llm.client import get_llm
 from app.memory.cache import ToolCache, get_tool_cache
+from app.memory.store import get_memory_store
 from app.models.itinerary import Itinerary
 from app.models.review import ReviewResult
 from app.tools import get_all_tools, get_tool_map
-# 复用单 Agent 的意图判定常量，保证单/多两套图的"规划意图"口径唯一
-from app.core.nodes import _PLAN_KEYWORDS, _PLANNING_TOOLS
+
+from app.llm.client import get_llm
+from app.models.intention import IntentionResult, NonPlanningAction
+
+import logging
+
+from app.core.now import date_hint
 
 logger = logging.getLogger(__name__)
+
+PLANNER_SYSTEM_PROMPT = f"""你是资深旅游规划师。根据用户需求，通过调用工具收集真实信息（天气、景点、酒店、餐厅、交通），然后规划出合理的多日行程。
+
+{date_hint()}
+
+工作原则：
+1. 必须调用工具获取真实数据，禁止凭记忆编造景点价格、酒店价格、车次信息。
+   工具分工：天气用 mcp_get_weather、景点用 mcp_search_attractions（这两个走 MCP）；
+   酒店 search_hotels、餐厅 search_restaurants、交通 search_transport、路线 calculate_route 为本地工具。
+2. 每个活动要有明确的时间、地点、费用
+3. 【地理聚集】同一天的活动必须集中在同一个区域，不要跨城或跨区跑。
+   例如：成都"锦里-武侯祠-宽窄巷子"在同一片区排一天，"熊猫基地-东郊记忆"另一天。
+   选景点时优先选同一行政区/同一商圈的，不要全市乱跑。
+4. 【排序原则】景点排序按游玩价值和评分：优先选评分4.5以上、知名度高的。
+   从工具返回的列表里挑评分最高的前3-5个，不要全选。
+5. 行程要考虑交通时间，不要把相距很远的活动排在一起
+6. 预算要合理，不要超支
+7. 如果用户没给出发城市，不要编造大交通，在 warnings 里提示即可
+8. 行程要松紧适度，不要把一天排满（每天3-5个活动即可）
+9. 住宿必须作为一个 category='住宿' 的活动放在行程里（通常在第一天晚上入住），
+   cost=每晚房费×晚数。不要只在 warnings 里提酒店，必须在 activities 里加住宿活动
+10. location 字段必须填具体可在地图上搜索的地点名（如"武侯祠"、"宽窄巷子"），
+   禁止填"午餐"、"返回酒店"、"自由活动"等模糊词。在生成计划时，一定要能在地图上找到标志点。
+   【坐标强制】每个"景点/餐饮/住宿"活动，都必须来自 mcp_search_attractions/search_restaurants/search_hotels 的工具返回，
+   并把工具结果里的"坐标：lng,lat"（如"104.055,30.663"）逗号前数字填到 lng、逗号后填到 lat，一个都不能漏。
+   不允许凭记忆写一个工具没返回的景点（那样没有坐标、地图无法精准定位）。
+   只有"交通"类活动（如乘高铁、返程）允许没有坐标，前端会自动定位到目的地城市中心。
+   坐标格式：lng 是经度（中国约73-135），lat 是纬度（约3-54）。
+11. 同一天内两个活动地点之间，必须用 calculate_route 查交通时间，把交通时间排进行程，不能假设两个地方走路就到
+12. 调用 transport/weather 工具时，日期必须是未来的真实日期（基于上面的"今天"推算），禁止用 2025-10-01 等示例日期
+13. 【禁止重复】同一个景点在整个行程里只安排一次，不得在同一天或不同天重复出现；
+    同一天内也不要安排两个名称或地点相同的活动。住宿（每晚）、每日三餐、往返交通属于正常重复，不受此限。
+
+
+最终你需要输出结构化的 Itinerary，包含：
+- destination: 目的地城市
+- days: 天数
+- total_budget: 用户预算
+- days_plan: 每天的主题和活动列表（每个活动有时间、名称、地点、费用、类别）
+- warnings: 需要用户确认的事项
+"""
+
 
 MAX_PLANNER_ITERS = 6    # Planner 节点内工具小循环上限
 MAX_REVIEW_ROUNDS = 2    # Reviewer 最多打回次数（防死循环）
 MAX_TOOL_RETRIES = 2
 
-
-# 单点信息查询信号：用户只问某一类信息（吃/天气/能力/单点信息），不是要整份多日行程
-# 命中这些且没有明确多日诉求时，即使模型越界调了 search_hotels，也判为直答
-_DIRECT_INTENT_KEYWORDS = (
-    "推荐一下", "有什么好吃", "好吃的", "火锅", "小吃", "美食", "餐厅", "餐馆",
-    "天气", "气温", "穿什么",
-    "你能做什么", "你是谁", "你会什么",
-    "门票", "开放时间",
-)
-# 明确多日规划信号：出现具体天数，几乎必然要整份行程
-_MULTI_DAY_PATTERN = re.compile(r"\d+\s*(天|日游)|[一二三四五六七八九十两]\s*天|几日游")
-
-
-def _detect_planning_intent(user_text: str, called_tools: set[str]) -> tuple[bool, str]:
-    """以用户文本为权威判定规划意图，工具调用仅在文本模糊时兜底。
-
-    优先级：
-    1. 文本含明确天数或强规划词（规划/行程/安排/攻略…）→ 规划
-    2. 文本只问单点信息（美食/天气/能力…）且无多日诉求 → 直答，忽略越界工具
-    3. 文本模糊时，才用"是否调用强规划工具"兜底
-    返回 (是否规划, 判定原因)，原因写进日志便于排查。
-    """
-    text = (user_text or "").strip()
-    has_multi_day = bool(_MULTI_DAY_PATTERN.search(text))
-    has_plan_kw = any(kw in text for kw in _PLAN_KEYWORDS)
-    has_direct_kw = any(kw in text for kw in _DIRECT_INTENT_KEYWORDS)
-
-    # 1. 明确多日 / 强规划措辞 → 规划（"怎么去"这类单点词让位于明确天数）
-    if has_multi_day or has_plan_kw:
-        return True, f"文本含明确规划信号(多日={has_multi_day}, 规划词={has_plan_kw})"
-
-    # 2. 单点信息查询 → 直答，不以模型越界调用的工具为准
-    if has_direct_kw:
-        return False, "文本为单点信息查询，判直答(忽略模型可能越界调用的规划工具)"
-
-    # 3. 文本模糊：用强规划工具兜底
-    if called_tools & _PLANNING_TOOLS:
-        return True, f"文本模糊，但调用了强规划工具{sorted(called_tools & _PLANNING_TOOLS)}"
-    return False, "文本无规划信号且未调强规划工具，判直答"
-
-
-
-PLANNER_SYSTEM_PROMPT = (
-    "你是旅游规划师，负责调用工具收集真实信息并产出初版行程。\n"
-    "硬性要求：\n"
-    "1. 价格、车次/航班时刻、开放时间、评分只能来自工具返回，禁止编造；"
-    "工具没查到的不要写具体数字\n"
-    "2. 完整多日规划必须查天气、景点、酒店；跨城往返必须查交通，"
-    "去程返程都要有依据，不能只查去程就编返程\n"
-    "3. 用户要求对比交通方式时，必须查到多种方式再对比，不能只给一种\n"
-    "4. 信息齐全后停止调工具，不要重复查询相同内容\n"
-    "5. 若被审核打回，按反馈针对性修改，保留没问题的部分\n"
-    "6. 预算汇总由下游预算师用代码统一计算，你不负责算总账，"
-    "只需给每个活动标注来自工具或明确估算的 cost\n"
-    "7. 严禁假设用户没提供的信息：用户没说出发城市，就不要安排跨城大交通，"
-    "把'需用户确认出发城市'写进 warnings，而不是自行选一个城市\n"
-    "8. 被打回重做时只改被点名的问题，其余活动与费用原样保留；"
-    "多日行程必须保留每晚住宿及其费用，严禁把住宿等已有费用项清零或删除"
-    "9. 只有用户要完整多日行程时才查酒店/城际交通；用户只问美食推荐、天气、"
-    "单个景点等单点信息时，只调对应工具并用自然语言回答，"
-    "不要查酒店、不要扩展成多日行程\n"
-)
 
 
 def _sanitize_for_structured(messages: list) -> list:
@@ -122,42 +108,135 @@ async def planner_node(state: dict) -> dict:
     - 内部新产生的消息回写 state.messages，Reviewer 才能提取工具证据。
     """
     llm = get_llm()
-    tool_map = get_tool_map()
+    from app.core.mcp_manager import get_mcp_tools
+    mcp_tools = get_mcp_tools()
     # 机制隔离：预算汇总是 Budgeter 职责，Planner 不绑定 calculate_budget
-    planner_tools = [t for t in get_all_tools() if t.name != "calculate_budget"]
+    # 架构分层：天气、景点统一走 MCP（mcp_get_weather/mcp_search_attractions），
+    # 不再绑定同名本地工具，避免 LLM 在两套重复工具间随机选择、导致 MCP 形同虚设。
+    # 酒店/餐厅/路线/交通仍是本地函数（计算类/暂未 MCP 化的能力）。
+    _LOCAL_SKIP = {"calculate_budget", "get_weather", "search_attractions"}
+    planner_tools = [t for t in get_all_tools() if t.name not in _LOCAL_SKIP] + mcp_tools
+    # dispatch map 只含"本次实际绑定"的工具——否则 LLM 即使没被绑定，
+    # 也可能因 prompt 里出现过旧工具名而吐出该名字，tool_map 若含本地工具就会照样执行。
+    tool_map = {t.name: t for t in planner_tools}
+    # 兼容兜底：模型若习惯性吐出旧本地名，重定向到对应 MCP 工具（而不是执行本地实现）
+    _MCP_ALIAS = {"get_weather": "mcp_get_weather", "search_attractions": "mcp_search_attractions"}
     bound = llm.bind_tools(planner_tools)
     cache = get_tool_cache()
+
+    feedback = state.get("reviewer_feedback", "")
+    prev_draft = state.get("draft_itinerary")
+    is_redraft = bool(feedback)
 
     # 历史消息只用于本次推理，不重复回写；只回写本轮新建的消息
     context: list = [SystemMessage(content=PLANNER_SYSTEM_PROMPT)]
     memory_context = state.get("memory_context", "")
     if memory_context:
         context.append(SystemMessage(content=f"【用户画像与历史偏好】\n{memory_context}"))
-    context.extend(state["messages"])
+
+    if is_redraft:
+
+        # 重做不带第一轮的工具结果与 ReAct 过程：那些长 JSON 已凝结进 prev_draft。
+        # 重做只需用户原话 + 上一版行程 + 审核意见；需补证据就按意见重新调工具（走 tool_cache）。
+        context.extend([
+            HumanMessage(content=m.content)
+            for m in state["messages"]
+            if getattr(m, "type", "") == "human"
+        ])
+    else:
+        context.extend(state["messages"])
 
     new_messages: list = []
-    feedback = state.get("reviewer_feedback", "")
-    prev_draft = state.get("draft_itinerary")
-    if feedback:
-        fb = HumanMessage(content=(
-            "上一版行程未通过审核。下面先给出【上一版完整行程】，"
-            "请在它基础上做最小修改：只改审核意见点名的问题，"
-            "其余活动、时间、费用一律原样保留，严禁删除或清零未被点名的费用项（尤其是每晚住宿）。\n\n"
-            f"【上一版完整行程】\n{json.dumps(prev_draft, ensure_ascii=False) if prev_draft else '（无）'}\n\n"
-            f"【审核意见】\n{feedback}"
-        ))
+    if is_redraft:
+        # 区分是 Reviewer 打回还是用户 modify
+        is_user_modify = state.get("review_status") == "revise" and "【用户要求调整】" in feedback
+        if is_user_modify:
+            fb = HumanMessage(content=(
+                "用户对你上一版行程提出了调整意见。这是局部修改，不是重新规划！\n"
+                "\n"
+                "严格规则：\n"
+                "1. 除了用户明确要求换掉的那个活动，其他所有活动、时间、费用、酒店、餐厅必须原样复制到新行程中，一字不改\n"
+                "2. 只调用工具查找替代那个被换掉的活动（如查景点/餐厅），不要重新查天气、酒店、交通\n"
+                "3. 不要重新规划整个行程结构，天数、目的地、预算不变\n"
+                "4. 新行程 = 旧行程的完整副本，只替换用户点名要换的那个活动\n"
+                "\n"
+                f"【上一版完整行程】\n{json.dumps(prev_draft, ensure_ascii=False) if prev_draft else '（无）'}\n\n"
+                f"【用户调整意见】\n{feedback}"
+            ))
+        else:
+            fb = HumanMessage(content=(
+                "上一版行程未通过审核。下面先给出【上一版完整行程】，"
+                "请在它基础上做最小修改：只改审核意见点名的问题，"
+                "其余活动、时间、费用一律原样保留，严禁删除或清零未被点名的费用项（尤其是每晚住宿）。\n\n"
+                f"【上一版完整行程】\n{json.dumps(prev_draft, ensure_ascii=False) if prev_draft else '（无）'}\n\n"
+                f"【审核意见】\n{feedback}"
+            ))
         context.append(fb)
         new_messages.append(fb)
+
         logger.info("[Planner] 第%d次重做，携带审核反馈与上一版行程", state.get("review_round", 0))
 
     tool_trace = list(state.get("tool_trace", []))
 
+    def _normalize_tool_result(result) -> str:
+        """本地工具返回 str；MCP 工具经 langchain-mcp-adapters 返回内容块列表
+        （[{'type':'text','text':...}] 或 TextContent 对象），统一抽成纯文本。"""
+        if isinstance(result, str):
+            return result
+        # MCP 内容块列表：拼接所有 text 段
+        if isinstance(result, list):
+            texts = []
+            for block in result:
+                if isinstance(block, dict):
+                    t = block.get("text")
+                else:
+                    t = getattr(block, "text", None)
+                if t:
+                    texts.append(str(t))
+            if texts:
+                return "\n".join(texts)
+        return str(result)
+
+    def _summarize_tool_result(name: str, result_str: str, max_lines: int = 5) -> str:
+        """工具结果摘要：超过 max_lines 行时截断，保留前 max_lines-1 行 + 剩余条数提示"""
+        lines = result_str.split("\n")
+        if len(lines) <= max_lines:
+            return result_str
+        kept = lines[:max_lines - 1]
+        omitted = len(lines) - max_lines
+        kept.append(f"... 另有{omitted}条结果省略，如需查看请重新搜索指定类别")
+        return "\n".join(kept)
+
+
+    # 工具失败降级策略：告诉 LLM 遇到工具挂了该怎么办，不要返回原始错误堆栈
+    _FALLBACKS = {
+        "get_weather": "天气查询暂时不可用。请基于常识给出穿衣建议，并在 warnings 里标注'天气数据未能获取，请用户自行确认天气'。",
+        "mcp_get_weather": "天气查询暂时不可用。请基于常识给出穿衣建议，并在 warnings 里标注'天气数据未能获取，请用户自行确认天气'。",
+        "search_attractions": "景点搜索暂时不可用。请基于常识推荐2-3个知名景点，在 warnings 里标注'景点数据未能获取，请用户自行核实开放时间和票价'。",
+        "mcp_search_attractions": "景点搜索暂时不可用。请基于常识推荐2-3个知名景点，在 warnings 里标注'景点数据未能获取，请用户自行核实开放时间和票价'。",
+        "search_hotels": "酒店搜索暂时不可用。请推荐2个连锁酒店品牌作为占位，在 warnings 里标注'酒店数据未能获取，请用户自行预订'。",
+        "search_restaurants": "餐厅搜索暂时不可用。请推荐2-3个当地知名菜系或品牌餐厅，在 warnings 里标注'餐厅数据未能获取，请用户自行核实'。",
+        "search_transport": "交通查询暂时不可用。请在 warnings 里提示用户自行查询高铁/航班，不要编造车次和价格。",
+        "calculate_route": "路线计算暂时不可用。请按'相邻景点打车约15-30分钟'估算交通时间，不要编造精确距离。",
+    }
+
+
+
     async def run_one_tool(tc: dict) -> ToolMessage:
         """单个工具：缓存优先 → 重试 → 失败兜底，与单 Agent tool_node 同标准"""
         name, args, tc_id = tc["name"], tc["args"], tc["id"]
+        # 旧本地名重定向到 MCP，并对齐参数签名（本地 get_weather 用 start_date，MCP 用 date）
+        if name in _MCP_ALIAS:
+            logger.info("[Planner] 工具名 %s 重定向到 %s（天气/景点统一走 MCP）", name, _MCP_ALIAS[name])
+            name = _MCP_ALIAS[name]
+            if name == "mcp_get_weather" and "date" not in args:
+                args = {**args, "date": args.get("start_date", "")}
+                args.pop("start_date", None)
+                args.pop("end_date", None)
         cache_key = ToolCache.make_key(name, args)
         cached = cache.get(cache_key)
         if cached is not None:
+            summarized = _summarize_tool_result(name, cached)
             tool_trace.append({"name": name, "args": args, "status": "cache_hit"})
             return ToolMessage(content=cached, tool_call_id=tc_id)
 
@@ -169,11 +248,14 @@ async def planner_node(state: dict) -> dict:
         last_error = None
         for attempt in range(MAX_TOOL_RETRIES + 1):
             try:
+                logger.info("[Planner] 执行工具 %s args=%s", name, args)
                 result = await tool.ainvoke(args)
-                result_str = result if isinstance(result, str) else str(result)
+                result_str = _normalize_tool_result(result)
+                result_str = _summarize_tool_result(name, result_str)
                 cache.set(cache_key, result_str)
                 tool_trace.append({"name": name, "args": args, "status": "ok"})
                 return ToolMessage(content=result_str, tool_call_id=tc_id)
+
             except Exception as e:
                 last_error = e
                 if attempt < MAX_TOOL_RETRIES:
@@ -184,7 +266,6 @@ async def planner_node(state: dict) -> dict:
 
     # ===== 节点内 ReAct 工具小循环 =====
     stopped_naturally = False
-    direct_answer = ""
     for _ in range(MAX_PLANNER_ITERS):
         ai_msg: AIMessage = await bound.ainvoke(context)
         context.append(ai_msg)
@@ -192,7 +273,6 @@ async def planner_node(state: dict) -> dict:
 
         if not ai_msg.tool_calls:
             stopped_naturally = True
-            direct_answer = ai_msg.content if isinstance(ai_msg.content, str) else ""
             break
         tool_msgs = await asyncio.gather(*[run_one_tool(tc) for tc in ai_msg.tool_calls])
         context.extend(tool_msgs)
@@ -200,26 +280,6 @@ async def planner_node(state: dict) -> dict:
 
     if not stopped_naturally:
         logger.warning("[Planner] 达到内部循环上限%d，强制进入结构化", MAX_PLANNER_ITERS)
-
-    # ===== Supervisor 意图守卫：非规划请求走直答快路径，不强行结构化 =====
-    called_tools = {t["name"] for t in tool_trace}
-    user_text = " ".join(
-        m.content for m in state["messages"] if getattr(m, "type", "") == "human"
-    )
-    is_planning, intent_reason = _detect_planning_intent(user_text, called_tools)
-    logger.info("[Planner] 意图判定: is_planning=%s（%s）", is_planning, intent_reason)
-
-    if not is_planning:
-        logger.info("[Planner] 判定为非规划意图，走直答快路径，不生成行程")
-        return {
-            "messages": new_messages,
-            "tool_trace": tool_trace,
-            "is_planning": False,
-            "draft_itinerary": None,
-            "final_answer": direct_answer or "（无回答）",
-            "reviewer_feedback": "",
-            "review_status": "",
-        }
 
     # ===== 规划意图：结构化生成初版行程（先清洗业务工具协议，避免污染 Itinerary 解析）=====
     structured_llm = llm.with_structured_output(Itinerary, method="function_calling")
@@ -261,6 +321,7 @@ async def planner_node(state: dict) -> dict:
             raise RuntimeError("Planner 结构化两次失败，且无上一版行程可回退") from first_error
     else:
         draft = draft_model.model_dump()
+        draft = dedup_activities(draft)
 
     logger.info(
         "[Planner] 初版行程完成: %s %d天, 累计工具轨迹%d条",
@@ -286,6 +347,52 @@ _CATEGORY_TO_FIELD = {
     "餐饮": "food_cost",
     "景点": "attraction_cost",
 }
+
+
+def _norm_place_text(s) -> str:
+    """归一化地点/活动名：去空白与标点、转小写，用于判断是否同一活动"""
+    return re.sub(r"[\s　，。、,.:：;；!！?？（）()【】\[\]\-—_|/\\]+", "", str(s or "")).lower()
+
+
+def dedup_activities(draft: dict) -> dict:
+    """确定性去除重复活动（不信任 LLM 一定不重复）。
+
+    - 同一天内：同名活动、或同一"景点"落在同一地点的重复项，只保留第一条；
+    - 跨天：同一个"景点"不应在不同日期重复游览，只保留首次出现那天；
+    - 住宿（每晚回酒店）、餐饮（每日多餐）、交通属于合理重复，不做跨天去重。
+    """
+    if not draft or not draft.get("days_plan"):
+        return draft
+    seen_attr_global: set[str] = set()
+    removed = 0
+    for day in draft["days_plan"]:
+        seen_day: set[tuple] = set()
+        kept = []
+        for act in day.get("activities", []):
+            cat = act.get("category", "")
+            name_key = _norm_place_text(act.get("name", ""))
+            loc_key = _norm_place_text(act.get("location", ""))
+            is_attr = cat == "景点"
+            day_keys = [("n", name_key)]
+            if is_attr and loc_key:
+                day_keys.append(("l", loc_key))
+            day_keys = [k for k in day_keys if k[1]]
+            if any(k in seen_day for k in day_keys):  # 日内重复
+                removed += 1
+                continue
+            if is_attr:  # 跨天重复景点
+                gkey = name_key or loc_key
+                if gkey and gkey in seen_attr_global:
+                    removed += 1
+                    continue
+                if gkey:
+                    seen_attr_global.add(gkey)
+            seen_day.update(day_keys)
+            kept.append(act)
+        day["activities"] = kept
+    if removed:
+        logger.info("[Dedup] 已移除重复活动 %d 个", removed)
+    return draft
 
 
 def budgeter_node(state: dict) -> dict:
@@ -362,10 +469,8 @@ async def reviewer_node(state: dict) -> dict:
     )
     called_tools = sorted({t["name"] for t in state.get("tool_trace", [])})
 
-    user_text = " ".join(
-        m.content for m in state.get("messages", [])
-        if getattr(m, "type", "") == "human"
-    )
+    human_msgs = [m for m in state.get("messages", []) if getattr(m, "type", "") == "human"]
+    user_text = human_msgs[-1].content if human_msgs else ""
 
 
     reviewer = get_llm()
@@ -470,14 +575,272 @@ def finalize_multi_node(state: dict) -> dict:
         "itinerary": draft,          # 同名写一份，兼容单 Agent 的 save_memory_node 和 API 层
         "final_answer": answer,
         "forced_stop": forced,
+        # 把最终回复写回 messages，下一轮同 thread_id 时 Planner 能看到自己上一轮说了什么
+        "messages": [AIMessage(content=answer)],
     }
 
 
-def finalize_direct_node(state: dict) -> dict:
-    """非规划请求的直答收尾：绕过 Budgeter/Reviewer，不付多角色成本"""
-    logger.info("[finalize_direct] 非规划直答，跳过预算核算与审查")
+
+async def intake_node(state: dict) -> dict:
+    """入口节点：LLM 判意图 + 提取槽位，不调业务工具"""
+    INTAKE_SYSTEM_PROMPT = """你是旅游助手的意图路由器。分析用户这句话，输出：
+
+    1. intent：
+       - planning = 用户要完整多日行程规划（出现"X天/行程/规划/攻略/安排路线"等）
+       - non_planning = 单点信息查询、美食/天气/景点推荐、闲聊、修改已有行程
+
+    2. action（非规划时）：
+       - info_query = 问天气/景点/美食/交通等单点信息，且不是在已有行程基础上调整
+       - modify = 在已有行程基础上，对行程内容表达不满、想换掉某个景点、调整某天安排、
+         嫌某天太赶/太松、不想去某个地方。即使没说"修改"两个字，只要针对已有行程提意见就是 modify
+       - chat = 闲聊或问你能做什么
+
+
+    3. slots：从用户话里提取的槽位
+       planning 必填：destination（目的地城市）、days（天数）
+       planning 可选：budget（预算）、start_city（出发城市）、date（出行日期）
+
+    4. missing_slots：planning 意图必填但用户没说的槽位名
+       例如用户说"帮我规划2天行程"但没说去哪 → missing_slots=["destination"]
+
+    5. clarify_question：缺槽位时，用自然语言向用户提问，一次只问最关键的那个
+       例如缺目的地："你想去哪个城市玩？"
+
+    注意：
+    - 用户只问"有什么好吃的/天气怎么样"→ non_planning + info_query，不是 planning
+    - 在已有行程基础上，用户对某个景点表达不满（"不想去XX""XX太无聊了""能不能换一个"）
+      → non_planning + modify，不是 info_query
+    - 用户说"第二天太赶了"→ non_planning + modify
+    - 槽位信息要从上下文推断，用户说"上次说的成都"也算 destination=成都
+    - 已有行程时，用户提到的景点名如果出现在【当前已有行程】里，优先判 modify
+    
+    【判断示例】
+    示例1：
+    【已有行程】第1天: 长城、故宫；第2天: 颐和园、天坛
+    用户消息：不想去长城，有没有别的好玩的
+    输出：modify（对行程中的景点表达不满，想换掉）
+
+    示例2：
+    【已有行程】第1天: 长城、故宫；第2天: 颐和园、天坛
+    用户消息：长城门票多少钱？
+    输出：info_query（只是问单点信息，没有要改行程）
+
+    示例3：
+    【已有行程】第1天: 长城、故宫
+    用户消息：第二天太赶了，能不能松一点
+    输出：modify（对行程安排提意见）
+
+    示例4：
+    【已有行程】第1天: 长城、故宫
+    用户消息：北京有什么火锅推荐？
+    输出：info_query（跟行程无关的新查询）
+
+    时间感知：""" + date_hint() + """
+    """
+
+    llm = get_llm()
+    structured_llm = llm.with_structured_output(IntentionResult, method="function_calling")
+
+    # 组装用户消息：最后一条 human + 是否有已有行程
+    human_msgs = [m for m in state["messages"] if getattr(m, "type", "") == "human"]
+    user_text = human_msgs[-1].content if human_msgs else ""
+    has_itinerary = bool(state.get("itinerary") or state.get("draft_itinerary"))
+
+    # 兜底：checkpoint 丢了（重启），从 memory store 拿最近一次行程
+    if not has_itinerary:
+        store_itineraries = get_memory_store().get_recent_itineraries(state.get("user_id", "default"))
+        if store_itineraries:
+            latest = store_itineraries[-1]
+            state["draft_itinerary"] = latest
+            has_itinerary = True
+            logger.info("[intake] checkpoint 无行程，从 memory store 加载最近行程: %s",
+                        latest.get("destination", ""))
+
+    user_msg = HumanMessage(content=(
+        f"【用户消息】{user_text}\n\n"
+        f"【当前会话是否已有行程】{'是' if has_itinerary else '否'}"
+    ))
+
+    # 如果有行程，把行程摘要带给 intake，让它知道行程里有什么
+    if has_itinerary:
+        itin = state.get("itinerary") or state.get("draft_itinerary") or {}
+        days_summary = []
+        for i, day in enumerate(itin.get("days_plan", []), 1):
+            names = [a.get("name", "") for a in day.get("activities", [])]
+            days_summary.append(f"第{i}天: {'、'.join(names)}")
+        itinerary_brief = "\n".join(days_summary)
+        user_msg = HumanMessage(content=(
+            f"【用户消息】{user_text}\n\n"
+            f"【当前已有行程】\n{itinerary_brief}"
+        ))
+
+    try:
+        result: IntentionResult = await structured_llm.ainvoke([
+            SystemMessage(content=INTAKE_SYSTEM_PROMPT),
+            user_msg,
+        ])
+    except Exception as e:
+        # LLM 自身故障：fail-open 走 chat，不让整条流程挂掉
+        logger.warning("[intake] 意图解析失败，默认走 chat: %s", e)
+        return {
+            "intent": "non_planning",
+            "action": "chat",
+            "slots": {},
+            "missing_slots": [],
+            "clarify_question": "",
+        }
+
+    logger.info(
+        "[intake] intent=%s action=%s slots=%s missing=%s",
+        result.intent, result.action, result.slots, result.missing_slots,
+    )
+
+    result_dict = {
+        "intent": result.intent.value,
+        "action": result.action.value,
+        "slots": result.slots,
+        "missing_slots": result.missing_slots,
+        "clarify_question": result.clarify_question,
+    }
+
+    # modify 意图：把用户修改意见塞进 reviewer_feedback，让 planner 走重做分支
+    if result.action == NonPlanningAction.MODIFY:
+        result_dict["reviewer_feedback"] = f"【用户要求调整】{user_text}"
+        result_dict["review_status"] = "revise"
+        logger.info("[intake] modify 意图，已将修改意见送入 planner 重做分支")
+
+    return result_dict
+
+
+async def answer_node(state: dict) -> dict:
+    """非规划意图的轻量回复：按需调工具，不产出 Itinerary"""
+    llm = get_llm()
+    action = state.get("action", "chat")
+
+    # 缺槽位：直接用 intake 生成的 clarify_question，不再调 LLM
+    clarify = state.get("clarify_question", "")
+    if clarify:
+        logger.info("[answer] 缺槽位，直接回复澄清问题: %s", clarify)
+        return {
+            "final_answer": clarify,
+            "messages": [AIMessage(content=clarify)],
+            "tool_trace": list(state.get("tool_trace", [])),
+            "is_planning": False,
+            "draft_itinerary": None,
+        }
+
+    # 按 action 绑不同工具集
+    from app.tools import get_all_tools
+    all_tools = get_all_tools()
+    tool_map = {t.name: t for t in all_tools}
+
+    if action == "info_query":
+        # 信息查询：只给查询类工具，不给 planner/budget
+        allowed = [t for t in all_tools if t.name in (
+            "search_restaurants", "get_weather",
+            "search_attractions", "search_transport", "calculate_route",
+        )]
+    else:
+        # chat：不绑工具
+        allowed = []
+
+    bound = llm.bind_tools(allowed) if allowed else llm
+
+    messages = [SystemMessage(content=(
+        "你是旅游助手。用户在问单点信息或闲聊，不要生成完整行程。"
+        "需要查信息就调对应工具，查到后用简洁自然语言回答。"
+        "如果用户只是闲聊，直接友好回复即可。"
+        + date_hint()
+    ))]
+    # 带上用户原话和已有槽位
+    human_msgs = [m for m in state["messages"] if getattr(m, "type", "") == "human"]
+    messages.extend(human_msgs)
+    if state.get("slots"):
+        messages.append(SystemMessage(content=f"【已提取槽位】{state['slots']}"))
+
+    # 轻量工具循环（最多 3 轮，不像 planner 那样 6 轮）
+    tool_trace = list(state.get("tool_trace", []))
+    for _ in range(3):
+        resp = await bound.ainvoke(messages) if allowed else await llm.ainvoke(messages)
+        messages.append(resp)
+        if not getattr(resp, "tool_calls", None):
+            break
+        # 调工具（简化，复用 planner 的 run_one_tool 逻辑）
+        tool_results = []
+        for tc in resp.tool_calls:
+            tool = tool_map.get(tc["name"])
+            if tool:
+                r = await tool.ainvoke(tc["args"])
+                tool_trace.append({"name": tc["name"], "args": tc["args"], "status": "ok"})
+                tool_results.append((str(r), tc["id"]))
+        from langchain_core.messages import ToolMessage
+        messages.extend([
+            ToolMessage(content=c, tool_call_id=tid) for c, tid in tool_results
+        ])
+
+    answer_text = resp.content if isinstance(resp.content, str) else str(resp.content)
     return {
-        "final_itinerary": None,
-        "itinerary": None,       # save_memory 见 itinerary 为 None 会自动跳过保存
-        "forced_stop": False,
+        "final_answer": answer_text,
+        "messages": [resp],   # 写回最后一条 AI 消息
+        "tool_trace": tool_trace,
+        "is_planning": False,
+        "draft_itinerary": None,
     }
+
+
+async def modify_node(state: dict) -> dict:
+    """基于已有行程做局部修改，LLM 一次输出完整 JSON，不走工具循环"""
+    llm = get_llm()
+    user_msg = state["messages"][-1].content if state["messages"] else ""
+    prev = state.get("final_itinerary") or state.get("itinerary")
+    if not prev:
+        store = get_memory_store()
+        history = store.get_recent_itineraries(state.get("user_id", "default"), limit=1)
+
+        if history:
+            prev = history[0]  # history[0] 直接就是 itinerary dict
+            logger.info("[modify] 从 memory store 加载最近行程: %s", prev.get("destination") if prev else None)
+
+    if not prev:
+        logger.warning("[modify] 没有已有行程，退回 planner")
+        return {"draft_itinerary": None, "is_planning": True, "review_status": ""}
+
+    try:
+        resp = await llm.ainvoke([
+            SystemMessage(content=(
+                "你是行程修改助手。用户要求对已有行程做局部调整。\n"
+                "规则：\n"
+                "1. 除了用户明确要求修改的部分，其他所有活动、时间、费用必须原样复制，一字不改\n"
+                "2. 不调用任何工具，直接输出完整修改后的行程 JSON\n"
+                "3. JSON 格式与原行程完全一致：days_plan 数组，每天有 date/theme/daily_budget/activities\n"
+                "4. activities 里每个活动必须有 time/name/location/category/cost 字段\n"
+                "5. 新增的替代活动也要填完整字段，cost 估算即可\n"
+                "直接输出 JSON，不要解释"
+            )),
+            HumanMessage(content=(
+                f"【原有完整行程】\n{json.dumps(prev, ensure_ascii=False, indent=2)}\n\n"
+                f"【用户修改要求】\n{user_msg}\n\n"
+                f"请输出修改后的完整行程 JSON："
+            )),
+        ])
+        content = resp.content if hasattr(resp, 'content') else str(resp)
+        import re
+        m = re.search(r'\{.*\}', content, re.DOTALL)
+        if not m:
+            logger.error("[modify] LLM 未返回 JSON")
+            return {"draft_itinerary": None, "review_status": "", "reviewer_feedback": "modify 解析失败"}
+        new_itinerary = json.loads(m.group())
+        new_itinerary = dedup_activities(new_itinerary)
+        logger.info("[modify] 局部修改完成: %s %s天",
+                     new_itinerary.get("destination"), new_itinerary.get("days"))
+        return {
+            "draft_itinerary": new_itinerary,
+            "is_planning": True,
+            "review_status": "",
+            "reviewer_feedback": "",
+            "review_round": 0,
+            "tool_trace": list(state.get("tool_trace", [])) + [{"name": "modify", "args": {"request": user_msg[:30]}, "status": "ok"}],
+        }
+    except Exception as e:
+        logger.exception("[modify] 局部修改失败")
+        return {"draft_itinerary": None, "review_status": "", "reviewer_feedback": f"modify 异常: {e}"}

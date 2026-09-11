@@ -17,8 +17,15 @@ class Settings(BaseSettings):
     API_PORT: int = 8000
     LOG_LEVEL: str = "INFO"
 
+    QWEATHER_API_KEY: str = ""
+    QWEATHER_API_HOST: str = ""
+
+    AMAP_API_KEY: str = ""
+
+
     # 适配器
     ADAPTER_MODE: str = "mock"
+
 
     # 数据库
     DB_URL: str = "sqlite:///./take_u_trip.db"

@@ -10,7 +10,13 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+# app/api/routes/__init__.py
 from app.api.routes.chat import router as chat_router
+from app.api.routes.wishlist import router as wishlist_router
+from app.api.routes.itinerary import router as itinerary_router
+
+__all__ = ["chat_router", "wishlist_router", "itinerary_router"]
+
 from app.config import get_settings
 
 from app.core.mcp_manager import close_mcp, init_mcp
@@ -53,6 +59,8 @@ app.add_middleware(
 
 # 注册路由
 app.include_router(chat_router)
+app.include_router(wishlist_router)
+app.include_router(itinerary_router)
 
 
 @app.get("/health")

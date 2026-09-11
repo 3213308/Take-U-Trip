@@ -40,7 +40,8 @@ async def search_hotels(city: str, check_in: str, check_out: str,
             facilities = "、".join(h["facilities"])
             lines.append(
                 f"{i}. {h['name']}（{h['stars']}）{h['price']}元/晚 "
-                f"评分{h['rating']} 位置：{h['location']} 设施：{facilities}"
+                f"评分{h['rating']} 位置：{h['location']} 设施：{facilities} "
+                f"坐标：{h.get('lnglat', '无')}"
             )
         return "\n".join(lines)
     except Exception as e:

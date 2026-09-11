@@ -32,3 +32,10 @@ class MultiAgentState(TypedDict):
     final_answer: str
     forced_stop: bool
     itinerary: dict | None
+
+    intent: str  # "planning" / "non_planning"
+    action: str  # "info_query" / "modify" / "chat"
+    slots: dict  # 已提取槽位
+    missing_slots: list  # 缺哪些必填槽位
+    clarify_question: str  # 要 interrupt 的话
+

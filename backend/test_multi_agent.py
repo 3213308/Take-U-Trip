@@ -59,14 +59,34 @@ def build_state(user_text: str, user_id: str = "multi-smoke") -> MultiAgentState
         "reviewer_feedback": "",
         "review_round": 0,
         "final_itinerary": None,
+        # intake 新字段
+        "intent": "",
+        "action": "",
+        "slots": {},
+        "missing_slots": [],
+        "clarify_question": "",
     }
-
 
 def print_node_update(node: str, update: dict) -> None:
     """打印单个节点的关键增量"""
     print(f"\n── 节点 [{node}] ──")
 
-    if node == "planner":
+    if node == "intake":
+        intent = update.get("intent", "")
+        action = update.get("action", "")
+        slots = update.get("slots", {})
+        missing = update.get("missing_slots", [])
+        print(f"  意图={intent}  action={action}")
+        if slots:
+            print(f"  槽位={slots}")
+        if missing:
+            print(f"  缺失槽位={missing}")
+
+    elif node == "answer":
+        tools = update.get("tool_trace", [])
+        print(f"  轻量回复完成，工具调用{len(tools)}次")
+
+    elif node == "planner":
         if update.get("is_planning") is False:
             print("  Planner 判定为非规划意图 → 走直答快路径（不生成行程）")
         else:
@@ -98,6 +118,7 @@ def print_node_update(node: str, update: dict) -> None:
 
     elif node in ("load_memory", "save_memory"):
         print("  （记忆节点）")
+
 
 
 async def main() -> None:
@@ -153,7 +174,7 @@ async def main() -> None:
 
     print(f"\n工具轨迹共 {len(final.get('tool_trace', []))} 条 | 端到端耗时 {elapsed:.2f}s")
     if not itin:
-        print(">>> 本次走直答快路径：planner → finalize_direct → save_memory，未经过 Budgeter/Reviewer")
+        print(f">>> 本次走非规划路径：intake → answer → save_memory，未经过 Budgeter/Reviewer")
     elif planner_count > 1:
         print(">>> 本次发生了打回重做，这就是单 Agent 没有的自我纠错闭环")
     else:

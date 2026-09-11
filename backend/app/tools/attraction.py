@@ -34,7 +34,8 @@ async def search_attractions(city: str, category: str = "", limit: int = 10) -> 
             ticket = "免费" if a["ticket"] == 0 else f"{a['ticket']}元"
             lines.append(
                 f"{i}. {a['name']}（{a['category']}）门票：{ticket} "
-                f"开放：{a['open_time']} 评分：{a['rating']} 建议游玩：{a['duration']}"
+                f"开放：{a['open_time']} 评分：{a['rating']} 建议游玩：{a['duration']} "
+                f"坐标：{a.get('lnglat', '无')}"
             )
         return "\n".join(lines)
     except Exception as e:

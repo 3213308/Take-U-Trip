@@ -26,8 +26,7 @@ def build_memory_context(user_profile: dict, recent_itineraries: list[dict]) -> 
 
     if recent_itineraries:
         trip_lines = ["【最近行程】"]
-        for trip in recent_itineraries[-3:]:
-            it = trip.get("itinerary", {})
+        for it in recent_itineraries[-3:]:
             trip_lines.append(
                 f"- {it.get('destination', '未知')} {it.get('days', 0)}天 "
                 f"预算{it.get('total_budget', 0):.0f}元"

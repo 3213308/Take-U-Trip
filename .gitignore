@@ -40,6 +40,7 @@ env/
 node_modules/
 dist/
 .next/
+.vite/
 *.log
 
 # ===== OS =====
@@ -48,7 +49,15 @@ Thumbs.db
 
 # ===== Project-specific =====
 # 评测报告（按需决定是否提交）
-# baseline_report.json
-# eval_report.json
-# multi_report.json
-# comparison_report.md
+baseline_report.json
+eval_report.json
+multi_report.json
+comparison_report.md
+
+# ===== 本地调试/临时脚本与截图（不提交） =====
+backend/_check_*.py
+backend/_clear_*.py
+backend/*_probe.py
+backend/test_case002_only.py
+screenshot.png
+modify_screenshot.png

@@ -41,7 +41,7 @@ async def main():
                     elif event_name == "tool_result":
                         print(f"[工具结果] {data['name']} → {data['status']}")
                     elif event_name == "final":
-                        print(f"\n[最终结果] 轮数={data.get('iteration')}")
+                        print(f"\n[最终结果] 规划={data.get('is_planning')} 强制放行={data.get('forced_stop')}")
                         if data.get("itinerary"):
                             it = data["itinerary"]
                             print(f"  目的地: {it['destination']} {it['days']}天")

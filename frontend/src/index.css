@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+/* ===== 设计令牌 ===== */
+@theme {
+  /* 品牌色：旅行青绿 */
+  --color-brand-50: #f0fdfa;
+  --color-brand-100: #ccfbf1;
+  --color-brand-200: #99f6e4;
+  --color-brand-300: #5eead4;
+  --color-brand-400: #2dd4bf;
+  --color-brand-500: #14b8a6;
+  --color-brand-600: #0d9488;
+  --color-brand-700: #0f766e;
+  --color-brand-800: #115e59;
+  --color-brand-900: #134e4a;
+
+  /* 中性色 */
+  --color-surface: #f8fafc;
+  --color-ink: #0f172a;
+
+  /* 活动分类色 */
+  --color-cat-transport: #3b82f6;
+  --color-cat-sight: #10b981;
+  --color-cat-food: #f59e0b;
+  --color-cat-hotel: #8b5cf6;
+  --color-cat-free: #94a3b8;
+
+  --font-sans: "PingFang SC", "Microsoft YaHei", "Segoe UI", system-ui,
+    -apple-system, sans-serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-surface text-ink antialiased;
+}
+
+/* 细滚动条 */
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+*::-webkit-scrollbar-thumb {
+  @apply rounded-full bg-slate-300;
+}
+*::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-400;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}

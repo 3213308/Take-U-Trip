@@ -33,9 +33,10 @@ async def search_transport(departure: str, destination: str, date: str,
 
         lines = [f"{departure}→{destination}（{date}）交通选项："]
         for i, r in enumerate(results, 1):
+            price_str = f"{r['price']}元" if r.get("price") else "价格请以12306为准"
             lines.append(
                 f"{i}. [{r['type']}] {r['number']} {r['departure']}-{r['arrival']} "
-                f"时长{r['duration']} {r['price']}元({r['seat']})"
+                f"时长{r['duration']} {price_str}（{r['seat']}）"
             )
         return "\n".join(lines)
     except Exception as e:

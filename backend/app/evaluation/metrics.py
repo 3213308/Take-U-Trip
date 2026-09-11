@@ -110,16 +110,27 @@ def evaluate_budget_consistency(itinerary: dict | None, tolerance: float = 1.0) 
             )
 
     # 分项费用 vs total_budget
+    # 注意语义：total_budget 是用户给的"预算上限"，parts_sum 是"实际花费"。
+    # 两者本就不该相等——花得比预算少（有结余）是好事，不算失败；
+    # 只有"明显超支"才是真问题。
     parts = ["transport_cost", "accommodation_cost", "food_cost", "attraction_cost"]
     parts_sum = sum(itinerary.get(p, 0) for p in parts)
     total = itinerary.get("total_budget", 0)
-    if total > 0 and parts_sum > 0 and abs(parts_sum - total) > max(tolerance, total * 0.3):
-        issues.append(f"分项费用合计{parts_sum:.0f}与总预算{total:.0f}差异过大")
+    over_budget_threshold = max(tolerance, total * 0.05)  # 超支容忍 5%，四舍五入误差
+    if total > 0 and parts_sum > 0 and parts_sum > total + over_budget_threshold:
+        issues.append(
+            f"分项费用合计{parts_sum:.0f}超出用户预算{total:.0f}"
+            f"（超支{parts_sum - total:.0f}）"
+        )
 
-    return {"pass": len(issues) == 0, "issues": issues, "parts_sum": parts_sum, "total": total}
-
-
-import re
+    remaining = total - parts_sum
+    return {
+        "pass": len(issues) == 0,
+        "issues": issues,
+        "parts_sum": parts_sum,
+        "total": total,
+        "remaining": remaining,  # 新增：花完还剩多少，供报告展示，不影响 pass
+    }
 
 
 def evaluate_fact_grounding(itinerary: dict | None, tool_trace: list[dict],

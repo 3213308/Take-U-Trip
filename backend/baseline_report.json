@@ -3,13 +3,13 @@
     "runs_per_case": 3,
     "total_runs": 15,
     "overall_pass_rate": 0.93,
-    "avg_judge_score": 8.2,
-    "avg_elapsed_sec": 9.35,
-    "avg_total_tokens": 7766.47,
+    "avg_judge_score": 8.07,
+    "avg_elapsed_sec": 8.78,
+    "avg_total_tokens": 8074.47,
     "avg_llm_calls": 3.4,
     "lesion_distribution": {
       "工具漏调(missing_tools非空)": "1/15 = 0.07",
-      "预算不一致(budget_metrics失败)": "4/15 = 0.27",
+      "预算不一致(budget_metrics失败)": "1/15 = 0.07",
       "schema/意图失败": "0/15 = 0.0",
       "Judge检查点未全过(<1.0)": "0/15 = 0.0"
     }
@@ -19,15 +19,15 @@
       "runs": 3,
       "pass_count": 3,
       "stability": 1.0,
-      "judge_score_avg": 8.67,
+      "judge_score_avg": 8.33,
       "judge_score_range": [
         8,
         9
       ],
       "judge_score_stdev": 0.47,
-      "avg_tokens": 4614.0,
-      "avg_elapsed_sec": 5.71,
-      "avg_llm_calls": 2.33
+      "avg_tokens": 3891.67,
+      "avg_elapsed_sec": 4.69,
+      "avg_llm_calls": 2.0
     },
     "case_002_full_itinerary": {
       "runs": 3,
@@ -39,36 +39,36 @@
         8
       ],
       "judge_score_stdev": 0.47,
-      "avg_tokens": 8051.0,
-      "avg_elapsed_sec": 11.02,
-      "avg_llm_calls": 4.33
+      "avg_tokens": 7195.0,
+      "avg_elapsed_sec": 9.83,
+      "avg_llm_calls": 4.0
     },
     "case_003_intercity_transport": {
       "runs": 3,
       "pass_count": 3,
       "stability": 1.0,
-      "judge_score_avg": 7.67,
+      "judge_score_avg": 7.0,
       "judge_score_range": [
-        7,
+        6,
         8
       ],
-      "judge_score_stdev": 0.47,
-      "avg_tokens": 17860.0,
-      "avg_elapsed_sec": 20.29,
-      "avg_llm_calls": 6.33
+      "judge_score_stdev": 0.82,
+      "avg_tokens": 20879.0,
+      "avg_elapsed_sec": 20.81,
+      "avg_llm_calls": 7.0
     },
     "case_004_food_focus": {
       "runs": 3,
       "pass_count": 3,
       "stability": 1.0,
-      "judge_score_avg": 8.33,
+      "judge_score_avg": 8.67,
       "judge_score_range": [
         8,
         9
       ],
       "judge_score_stdev": 0.47,
-      "avg_tokens": 6503.67,
-      "avg_elapsed_sec": 6.87,
+      "avg_tokens": 6616.33,
+      "avg_elapsed_sec": 5.99,
       "avg_llm_calls": 3.0
     },
     "case_005_no_tool_needed": {
@@ -81,8 +81,8 @@
         9
       ],
       "judge_score_stdev": 0.47,
-      "avg_tokens": 1803.67,
-      "avg_elapsed_sec": 2.88,
+      "avg_tokens": 1790.33,
+      "avg_elapsed_sec": 2.59,
       "avg_llm_calls": 1.0
     }
   },
@@ -109,18 +109,18 @@
         "pass": true,
         "issues": []
       },
-      "judge_score": 9,
+      "judge_score": 8,
       "judge_pass_rate": 1.0,
       "judge_weaknesses": [
-        "回答中未明确说明查询的是'今天'（10月1日）的天气，而是笼统地写'根据查询到的天气预报（10月1日）'，可能让用户对'今天'的对应关系产生轻微困惑。",
-        "穿衣建议（长袖外套/薄毛衣）和'室内可避雨'的提示属于合理推断，但并非工具直接提供，属于轻微延伸，不影响核心数据准确性。"
+        "回答中“今天”的日期未明确说明，但根据天气预报推断为10月1日，存在轻微歧义。",
+        "小贴士中“武侯祠（室内为主）”和“宽窄巷子（有廊檐可避雨）”属于常识性描述，但工具数据中并未提供，可能超出数据范围。"
       ],
       "runtime": {
-        "elapsed_sec": 5.54,
+        "elapsed_sec": 5.49,
         "llm_calls": 2,
-        "input_tokens": 3361,
-        "output_tokens": 517,
-        "total_tokens": 3878,
+        "input_tokens": 3355,
+        "output_tokens": 529,
+        "total_tokens": 3884,
         "agent_iterations": 2,
         "tool_calls": 2
       }
@@ -147,20 +147,20 @@
         "pass": true,
         "issues": []
       },
-      "judge_score": 8,
+      "judge_score": 9,
       "judge_pass_rate": 1.0,
       "judge_weaknesses": [
-        "回答明确指出系统返回的是10月1日的数据，无法获取“今天”（2月24日）的天气，但用户询问的是“今天”，存在时间不匹配问题，可能影响实用性。",
-        "回答中“次日转阴，15~22℃”中的“次日”指10月2日，但未明确说明与“今天”的关系，可能造成混淆。"
+        "回答中“今天”的日期未明确说明，但根据上下文推断为10月1日，存在轻微歧义。",
+        "穿衣建议和游览建议（如“室内或半室内”）属于合理推断，但并非工具数据直接提供，可能被误认为编造，但未涉及具体数字，不构成严重问题。"
       ],
       "runtime": {
-        "elapsed_sec": 6.79,
-        "llm_calls": 3,
-        "input_tokens": 5364,
-        "output_tokens": 661,
-        "total_tokens": 6025,
-        "agent_iterations": 3,
-        "tool_calls": 3
+        "elapsed_sec": 4.74,
+        "llm_calls": 2,
+        "input_tokens": 3355,
+        "output_tokens": 557,
+        "total_tokens": 3912,
+        "agent_iterations": 2,
+        "tool_calls": 2
       }
     },
     {
@@ -185,71 +185,24 @@
         "pass": true,
         "issues": []
       },
-      "judge_score": 9,
+      "judge_score": 8,
       "judge_pass_rate": 1.0,
       "judge_weaknesses": [
-        "回答开头提到“天气查询返回的日期是2025年10月1日”，但用户问的是“今天”，而工具数据中并未明确“今天”就是10月1日，存在时间指代上的轻微模糊。",
-        "回答中“穿衣建议”属于合理推断，但并非工具直接提供，虽不算编造，但略显主观。"
+        "回答开头说'让我先确认一下今天的日期'，但未明确说明今天具体是哪一天（如10月1日），可能让用户对天气时效性产生困惑。",
+        "天气部分仅列出10月1日和2日，未明确说明'今天'对应哪一天，若用户提问时并非10月1日，则天气信息可能不匹配。"
       ],
       "runtime": {
-        "elapsed_sec": 4.8,
+        "elapsed_sec": 3.85,
         "llm_calls": 2,
-        "input_tokens": 3380,
-        "output_tokens": 559,
-        "total_tokens": 3939,
+        "input_tokens": 3361,
+        "output_tokens": 518,
+        "total_tokens": 3879,
         "agent_iterations": 2,
         "tool_calls": 2
       }
     },
     {
       "run_idx": 0,
-      "rule_pass": true,
-      "overall_pass": true,
-      "tool_metrics": {
-        "tool_recall": 1.0,
-        "tool_precision": 1.0,
-        "called_tools": [
-          "get_weather",
-          "search_attractions",
-          "search_hotels",
-          "search_restaurants"
-        ],
-        "missing_tools": [],
-        "misused_tools": [],
-        "pass": true
-      },
-      "schema_metrics": {
-        "pass": true,
-        "missing_fields": [],
-        "day_issues": []
-      },
-      "budget_metrics": {
-        "pass": false,
-        "issues": [
-          "分项费用合计711与总预算2000差异过大"
-        ],
-        "parts_sum": 711.0,
-        "total": 2000.0
-      },
-      "judge_score": 8,
-      "judge_pass_rate": 1.0,
-      "judge_weaknesses": [
-        "预算明细中transport_cost为0，但warnings中提示需确认出发城市，未明确说明交通费用是否包含，存在模糊。",
-        "第二天下午安排自由活动，活动密度较低，可能影响行程充实度。",
-        "每日预算字段为0，未按实际分配，可能造成理解混乱。"
-      ],
-      "runtime": {
-        "elapsed_sec": 11.41,
-        "llm_calls": 5,
-        "input_tokens": 8249,
-        "output_tokens": 1527,
-        "total_tokens": 9776,
-        "agent_iterations": 3,
-        "tool_calls": 4
-      }
-    },
-    {
-      "run_idx": 1,
       "rule_pass": false,
       "overall_pass": false,
       "tool_metrics": {
@@ -273,24 +226,70 @@
       "budget_metrics": {
         "pass": true,
         "issues": [],
-        "parts_sum": 1700.0,
-        "total": 2000.0
+        "parts_sum": 1360.0,
+        "total": 2000.0,
+        "remaining": 640.0
       },
       "judge_score": 8,
       "judge_pass_rate": 1.0,
       "judge_weaknesses": [
-        "第一天行程中杜甫草堂与宽窄巷子距离较远（青羊区不同位置），未考虑交通时间衔接，可能影响实际可行性。",
-        "第二天下午安排成都博物馆，但工具数据中未提供该景点信息，且未标注为历史古迹，与用户偏好略有偏差。",
-        "预算明细中未单独列出市内交通费用，可能低估实际支出。"
+        "第1天行程中杜甫草堂（15:30-17:30）与锦里古街（13:00-15:00）之间距离较远，但未提及交通时间或方式，可能影响行程可行性。",
+        "第2天自由活动/购物安排在春熙路，但春熙路并非历史古迹，且未在工具数据中提及，可能降低历史古迹占比的纯粹性。",
+        "每日预算字段为0.0，未明确分配每日预算，但总预算已给出，属于轻微瑕疵。"
       ],
       "runtime": {
-        "elapsed_sec": 10.86,
+        "elapsed_sec": 9.0,
         "llm_calls": 4,
-        "input_tokens": 5360,
-        "output_tokens": 1371,
-        "total_tokens": 6731,
+        "input_tokens": 5276,
+        "output_tokens": 1313,
+        "total_tokens": 6589,
         "agent_iterations": 2,
         "tool_calls": 2
+      }
+    },
+    {
+      "run_idx": 1,
+      "rule_pass": true,
+      "overall_pass": true,
+      "tool_metrics": {
+        "tool_recall": 1.0,
+        "tool_precision": 1.0,
+        "called_tools": [
+          "get_weather",
+          "search_attractions",
+          "search_hotels"
+        ],
+        "missing_tools": [],
+        "misused_tools": [],
+        "pass": true
+      },
+      "schema_metrics": {
+        "pass": true,
+        "missing_fields": [],
+        "day_issues": []
+      },
+      "budget_metrics": {
+        "pass": true,
+        "issues": [],
+        "parts_sum": 1596.0,
+        "total": 2000.0,
+        "remaining": 404.0
+      },
+      "judge_score": 8,
+      "judge_pass_rate": 1.0,
+      "judge_weaknesses": [
+        "酒店推荐数据日期为2025-01-20至2025-01-22，与行程日期2025-10-01至10-02不符，但住宿费用396元可能是基于如家两晚（198元/晚）计算，未明确说明酒店选择依据。",
+        "行程中未明确标注每日预算分配，daily_budget均为0，但总预算已给出。",
+        "10月1日有小雨，行程中安排了户外景点，虽有提醒但未调整活动顺序或提供备选方案。"
+      ],
+      "runtime": {
+        "elapsed_sec": 10.71,
+        "llm_calls": 4,
+        "input_tokens": 5963,
+        "output_tokens": 1553,
+        "total_tokens": 7516,
+        "agent_iterations": 2,
+        "tool_calls": 3
       }
     },
     {
@@ -317,22 +316,23 @@
       "budget_metrics": {
         "pass": true,
         "issues": [],
-        "parts_sum": 1488.0,
-        "total": 2000.0
+        "parts_sum": 1756.0,
+        "total": 2000.0,
+        "remaining": 244.0
       },
       "judge_score": 7,
       "judge_pass_rate": 1.0,
       "judge_weaknesses": [
-        "日期与工具数据不一致：工具返回的天气预报为2025-10-01和10-02，酒店推荐为2025-03-01至03-03，而行程日期为2025-03-01和03-02，与天气预报日期不符，可能造成混淆。",
-        "预算分配不明确：daily_budget字段均为0，未明确每日预算，且transport_cost为800元但无具体交通建议，可能显得笼统。",
-        "金沙遗址博物馆门票70元在工具数据中未出现，工具数据中只有武侯祠和杜甫草堂各50元，但该景点未在工具推荐列表中，可能超出工具数据范围。"
+        "第二天行程较松散，下午仅安排自由活动和返程准备，活动丰富度不足。",
+        "预算明细中未列出交通费用的具体构成，仅说明预留800元，缺乏工具数据支撑。",
+        "第一天行程中锦里古街午餐和游览分开，但午餐后继续游览同一地点，时间安排略显冗余。"
       ],
       "runtime": {
-        "elapsed_sec": 10.78,
+        "elapsed_sec": 9.77,
         "llm_calls": 4,
-        "input_tokens": 5952,
-        "output_tokens": 1694,
-        "total_tokens": 7646,
+        "input_tokens": 6001,
+        "output_tokens": 1479,
+        "total_tokens": 7480,
         "agent_iterations": 2,
         "tool_calls": 3
       }
@@ -364,25 +364,26 @@
       "budget_metrics": {
         "pass": false,
         "issues": [
-          "第3天活动费用合计908与daily_budget130差异过大"
+          "第1天活动费用合计1066与daily_budget476差异过大",
+          "第3天活动费用合计958与daily_budget2054差异过大"
         ],
-        "parts_sum": 2756.0,
-        "total": 2906.0
+        "parts_sum": 2606.0,
+        "total": 2806.0,
+        "remaining": 200.0
       },
-      "judge_score": 8,
+      "judge_score": 7,
       "judge_pass_rate": 1.0,
       "judge_weaknesses": [
-        "行程日期为2025-03-20至2025-03-22，但工具数据中天气预报为2025-10-01和10-02，日期不匹配，导致天气预警可能不适用。",
-        "预算汇总中交通费用1557元，但行程中仅包含去程高铁778.5元和返程高铁778.5元，合计1557元，未包含任何机场交通或市内交通费用，可能低估实际交通成本。",
-        "行程中未明确安排返程高铁的具体班次，仅写“乘高铁返回北京”，且未提供返程时间，可能导致行程不完整。",
-        "每日预算计算有误：第一天1036.5元（实际778.5+198+60=1036.5，正确），第二天260元（实际55+120+50+35=260，正确），第三天130元（实际50+80=130，但未包含返程交通，若包含返程778.5元则应为908.5元，但行程中返程费用已计入总交通，每日预算未包含，存在不一致）。"
+        "第2天行程中，午餐安排在'锦里附近'的龙抄手，但工具数据中龙抄手位于春熙路店，位置描述与工具数据存在轻微不一致。",
+        "第1天晚餐陈麻婆豆腐（60元）与第2天午餐龙抄手（35元）的餐厅位置未明确标注具体门店，但工具数据中陈麻婆豆腐未标注具体位置，龙抄手明确为春熙路店，行程中将其安排在锦里附近，存在位置逻辑瑕疵。",
+        "第3天返程高铁时间为15:00-22:30，但工具数据中仅提供去程G89时刻（06:50-14:25），返程车次时刻为行程自行设定，虽价格合理但时刻无直接工具依据。"
       ],
       "runtime": {
-        "elapsed_sec": 21.19,
+        "elapsed_sec": 20.81,
         "llm_calls": 7,
-        "input_tokens": 17207,
-        "output_tokens": 3263,
-        "total_tokens": 20470,
+        "input_tokens": 17101,
+        "output_tokens": 3331,
+        "total_tokens": 20432,
         "agent_iterations": 5,
         "tool_calls": 7
       }
@@ -396,6 +397,7 @@
         "tool_precision": 1.0,
         "called_tools": [
           "calculate_budget",
+          "calculate_route",
           "get_weather",
           "search_attractions",
           "search_hotels",
@@ -412,28 +414,28 @@
         "day_issues": []
       },
       "budget_metrics": {
-        "pass": false,
-        "issues": [
-          "第2天活动费用合计245与daily_budget700差异过大"
-        ],
-        "parts_sum": 2708.0,
-        "total": 3000.0
+        "pass": true,
+        "issues": [],
+        "parts_sum": 2846.0,
+        "total": 3000.0,
+        "remaining": 154.0
       },
-      "judge_score": 8,
+      "judge_score": 6,
       "judge_pass_rate": 1.0,
       "judge_weaknesses": [
-        "行程中未明确说明住宿为两晚，且未提及第三晚住宿安排（若需返程则合理，但应说明）。",
-        "预算汇总中住宿成本396元，但行程中仅出现一晚198元，未明确第二晚住宿安排，存在轻微逻辑不清晰。",
-        "未提及成都天气预报中的小雨天气对行程的影响，仅笼统提示带雨具。"
+        "预算汇总中餐饮费为540元，但行程中餐饮费用合计为120+60+80+50=310元，与汇总不符，存在计算矛盾。",
+        "交通费用中包含了市内交通费（10+20+15+15=60元），但transport_cost仅计算了高铁往返1557元，未包含市内交通，导致总预算计算不准确。",
+        "行程中未安排2025-03-22的住宿，但预算中住宿费594元（198*3）暗示住了3晚，实际行程仅2晚，存在不一致。",
+        "行程中未包含春熙路景点门票（免费），但预算中其他费用200元未明确用途，可能包含购物等，但未在行程中体现。"
       ],
       "runtime": {
-        "elapsed_sec": 19.09,
-        "llm_calls": 6,
-        "input_tokens": 13189,
-        "output_tokens": 2860,
-        "total_tokens": 16049,
-        "agent_iterations": 4,
-        "tool_calls": 6
+        "elapsed_sec": 20.63,
+        "llm_calls": 7,
+        "input_tokens": 17494,
+        "output_tokens": 3560,
+        "total_tokens": 21054,
+        "agent_iterations": 5,
+        "tool_calls": 10
       }
     },
     {
@@ -461,30 +463,27 @@
         "day_issues": []
       },
       "budget_metrics": {
-        "pass": false,
-        "issues": [
-          "第1天活动费用合计868与daily_budget500差异过大",
-          "第2天活动费用合计265与daily_budget500差异过大",
-          "第3天活动费用合计938与daily_budget500差异过大"
-        ],
-        "parts_sum": 2706.0,
-        "total": 3000.0
+        "pass": true,
+        "issues": [],
+        "parts_sum": 2996.0,
+        "total": 3000.0,
+        "remaining": 4.0
       },
-      "judge_score": 7,
+      "judge_score": 8,
       "judge_pass_rate": 1.0,
       "judge_weaknesses": [
-        "预算超支：总预算3096元，超出用户3000元预算96元，但行程中未提供任何调整建议或替代方案（如降低住宿标准），仅依赖warnings中的提示，未在主体内容中体现。",
-        "返程高铁时间未指定具体车次：行程中写'15:30-23:00乘坐高铁返回北京'，但工具数据中仅提供了去程G89车次，未提供返程车次信息，时间7.5小时为估算，缺乏具体车次依据。",
-        "每日预算分配不合理：每日预算设为500元，但第1天实际费用（778.5+30+60=868.5元）和第3天实际费用（50+80+30+778.5=938.5元）均远超500元，每日预算形同虚设，未与总预算联动。"
+        "行程中未明确标注每日预算分配，daily_budget均为0，但总预算计算正确。",
+        "第一天行程较满，从15:00入住后连续游览宽窄巷子、锦里，可能时间紧张，但仍在合理范围。",
+        "返程高铁时间未指定具体车次，仅写14:30-22:00，与工具数据中G89去程时间一致，但返程车次未明确，可能为推断。"
       ],
       "runtime": {
-        "elapsed_sec": 20.6,
-        "llm_calls": 6,
-        "input_tokens": 14024,
-        "output_tokens": 3037,
-        "total_tokens": 17061,
-        "agent_iterations": 4,
-        "tool_calls": 7
+        "elapsed_sec": 20.98,
+        "llm_calls": 7,
+        "input_tokens": 17782,
+        "output_tokens": 3369,
+        "total_tokens": 21151,
+        "agent_iterations": 5,
+        "tool_calls": 10
       }
     },
     {
@@ -509,101 +508,100 @@
         "pass": true,
         "issues": []
       },
-      "judge_score": 8,
-      "judge_pass_rate": 1.0,
-      "judge_weaknesses": [
-        "回答中额外列举了小龙坎、大龙燚、蜀九香等火锅品牌，以及担担面、甜水面、夫妻肺片等小吃，这些具体名称在工具数据中未出现，属于补充性推荐，但未提供价格或评分，可能让用户误以为有数据支撑。",
-        "工具数据中未找到景点信息，但回答末尾主动询问是否需要规划行程，可能超出当前查询范围，但未编造具体数据，影响较小。"
-      ],
-      "runtime": {
-        "elapsed_sec": 5.89,
-        "llm_calls": 3,
-        "input_tokens": 5303,
-        "output_tokens": 721,
-        "total_tokens": 6024,
-        "agent_iterations": 3,
-        "tool_calls": 5
-      }
-    },
-    {
-      "run_idx": 1,
-      "rule_pass": true,
-      "overall_pass": true,
-      "tool_metrics": {
-        "tool_recall": 1.0,
-        "tool_precision": 1.0,
-        "called_tools": [
-          "search_attractions",
-          "search_restaurants"
-        ],
-        "missing_tools": [],
-        "misused_tools": [],
-        "pass": true
-      },
-      "schema_metrics": {
-        "pass": true
-      },
-      "budget_metrics": {
-        "pass": true,
-        "issues": []
-      },
-      "judge_score": 8,
-      "judge_pass_rate": 1.0,
-      "judge_weaknesses": [
-        "火锅和小吃各只推荐了一家，选择较少，且未提供更多备选。",
-        "额外补充的小吃清单（担担面、三大炮等）和火锅小贴士虽为常识性内容，但并非工具数据，可能让用户误以为有依据。",
-        "景点推荐虽来自工具数据，但未与美食动线深度结合，略显松散。"
-      ],
-      "runtime": {
-        "elapsed_sec": 7.5,
-        "llm_calls": 3,
-        "input_tokens": 5781,
-        "output_tokens": 923,
-        "total_tokens": 6704,
-        "agent_iterations": 3,
-        "tool_calls": 5
-      }
-    },
-    {
-      "run_idx": 2,
-      "rule_pass": true,
-      "overall_pass": true,
-      "tool_metrics": {
-        "tool_recall": 1.0,
-        "tool_precision": 1.0,
-        "called_tools": [
-          "search_attractions",
-          "search_restaurants"
-        ],
-        "missing_tools": [],
-        "misused_tools": [],
-        "pass": true
-      },
-      "schema_metrics": {
-        "pass": true
-      },
-      "budget_metrics": {
-        "pass": true,
-        "issues": []
-      },
       "judge_score": 9,
       "judge_pass_rate": 1.0,
       "judge_weaknesses": [
-        "回答中补充推荐的陈麻婆豆腐和饕林餐厅属于川菜，并非用户明确要求的火锅或小吃，虽标注为'顺带尝尝'，但可能分散主题。",
-        "景点推荐部分（如大熊猫基地、宽窄巷子等）与美食关联性较弱，且未给出具体行程安排，略显冗余。",
-        "回答末尾询问出发时间和地点，但未提供交通或住宿建议，与用户当前需求（美食推荐）关联度不高。"
+        "回答中引用了景点信息，但用户需求仅要求美食推荐，景点部分略显冗余，可能分散核心信息。",
+        "川菜补充推荐并非用户明确要求，但作为额外信息尚可接受，不过可能让回答不够聚焦。",
+        "回答结尾询问行程细节，但未提供具体行程规划，稍显突兀，且未基于用户需求进一步细化。"
       ],
       "runtime": {
-        "elapsed_sec": 7.21,
+        "elapsed_sec": 6.4,
         "llm_calls": 3,
-        "input_tokens": 5920,
-        "output_tokens": 863,
-        "total_tokens": 6783,
+        "input_tokens": 5896,
+        "output_tokens": 866,
+        "total_tokens": 6762,
         "agent_iterations": 3,
         "tool_calls": 6
       }
     },
     {
+      "run_idx": 1,
+      "rule_pass": true,
+      "overall_pass": true,
+      "tool_metrics": {
+        "tool_recall": 1.0,
+        "tool_precision": 1.0,
+        "called_tools": [
+          "search_attractions",
+          "search_restaurants"
+        ],
+        "missing_tools": [],
+        "misused_tools": [],
+        "pass": true
+      },
+      "schema_metrics": {
+        "pass": true
+      },
+      "budget_metrics": {
+        "pass": true,
+        "issues": []
+      },
+      "judge_score": 9,
+      "judge_pass_rate": 1.0,
+      "judge_weaknesses": [
+        "额外推荐了景点，虽不违反用户需求，但可能分散对美食的注意力，且景点信息与美食需求关联度不高。",
+        "未对火锅和小吃进行更详细的对比或组合建议，如火锅配小吃的最佳搭配。"
+      ],
+      "runtime": {
+        "elapsed_sec": 5.81,
+        "llm_calls": 3,
+        "input_tokens": 5753,
+        "output_tokens": 756,
+        "total_tokens": 6509,
+        "agent_iterations": 3,
+        "tool_calls": 5
+      }
+    },
+    {
+      "run_idx": 2,
+      "rule_pass": true,
+      "overall_pass": true,
+      "tool_metrics": {
+        "tool_recall": 1.0,
+        "tool_precision": 1.0,
+        "called_tools": [
+          "search_attractions",
+          "search_restaurants"
+        ],
+        "missing_tools": [],
+        "misused_tools": [],
+        "pass": true
+      },
+      "schema_metrics": {
+        "pass": true
+      },
+      "budget_metrics": {
+        "pass": true,
+        "issues": []
+      },
+      "judge_score": 8,
+      "judge_pass_rate": 1.0,
+      "judge_weaknesses": [
+        "行程建议中提及的担担面、夫妻肺片等小吃名称未在工具数据中出现，属于额外推荐，但未给出具体店铺或价格，不影响核心需求。",
+        "表格中“武侯祠周边”对应火锅，但工具数据中蜀大侠火锅的具体位置未明确标注，存在轻微关联性不强的问题。"
+      ],
+      "runtime": {
+        "elapsed_sec": 5.77,
+        "llm_calls": 3,
+        "input_tokens": 5769,
+        "output_tokens": 809,
+        "total_tokens": 6578,
+        "agent_iterations": 3,
+        "tool_calls": 5
+      }
+    },
+    {
       "run_idx": 0,
       "rule_pass": true,
       "overall_pass": true,
@@ -625,15 +623,15 @@
       "judge_score": 9,
       "judge_pass_rate": 1.0,
       "judge_weaknesses": [
-        "回答中未提及任何工具数据来源，但本次未调用工具，因此无数据可依据，但整体描述属于通用能力介绍，不涉及具体数字，不构成编造。",
-        "回答略显冗长，但结构清晰，无重大缺陷。"
+        "回答中未提及任何工具数据来源，但本次未调用工具，且未涉及具体数字，因此无编造风险。",
+        "能力介绍较为泛化，未说明数据实时性、覆盖范围或限制（如是否支持国际旅行），但非硬性要求。"
       ],
       "runtime": {
-        "elapsed_sec": 3.03,
+        "elapsed_sec": 2.25,
         "llm_calls": 1,
         "input_tokens": 1510,
-        "output_tokens": 308,
-        "total_tokens": 1818,
+        "output_tokens": 273,
+        "total_tokens": 1783,
         "agent_iterations": 1,
         "tool_calls": 0
       }
@@ -660,15 +658,15 @@
       "judge_score": 9,
       "judge_pass_rate": 1.0,
       "judge_weaknesses": [
-        "回答中未提及工具数据来源，但本次未调用工具，因此无数据可依据，不构成编造。",
-        "回答略显模板化，缺乏个性化互动，但符合用户询问'你能做什么'的语境。"
+        "回答中未提及工具数据来源，但本次未调用工具，因此无数据依据问题。",
+        "能力介绍较为全面，但未说明数据实时性、覆盖范围等限制，可能让用户产生不切实际的期待。"
       ],
       "runtime": {
-        "elapsed_sec": 2.63,
+        "elapsed_sec": 2.92,
         "llm_calls": 1,
         "input_tokens": 1510,
-        "output_tokens": 294,
-        "total_tokens": 1804,
+        "output_tokens": 287,
+        "total_tokens": 1797,
         "agent_iterations": 1,
         "tool_calls": 0
       }
@@ -695,15 +693,15 @@
       "judge_score": 8,
       "judge_pass_rate": 1.0,
       "judge_weaknesses": [
-        "能力描述较为泛化，未提及具体数据来源或实时性限制，可能让用户误以为所有信息都能即时获取。",
-        "示例问题中隐含了具体城市（如北京、上海、成都、厦门），但未实际查询工具数据，可能给用户造成已获取相关信息的错觉。"
+        "回答中未提及工具数据来源，但本次未调用工具，因此无数据可引用，但能力描述中未明确说明数据实时性，可能影响用户信任。",
+        "能力列举较为宽泛，未说明具体限制（如仅支持跨城市交通、不支持实时预订等），可能造成用户预期过高。"
       ],
       "runtime": {
-        "elapsed_sec": 2.97,
+        "elapsed_sec": 2.59,
         "llm_calls": 1,
         "input_tokens": 1510,
-        "output_tokens": 279,
-        "total_tokens": 1789,
+        "output_tokens": 281,
+        "total_tokens": 1791,
         "agent_iterations": 1,
         "tool_calls": 0
       }

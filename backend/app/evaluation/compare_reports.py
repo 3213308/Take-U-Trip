@@ -70,8 +70,8 @@ def build_comparison(single: dict, multi: dict) -> str:
         lines.append(f"| {key} | {s['lesion_distribution'].get(key, '—')} "
                      f"| {m['lesion_distribution'].get(key, '—')} |")
     lines.append("")
-    lines.append("> 注：「预算不一致」由 evaluate_budget_consistency 判定，"
-                 "「分项合计远小于总预算（有结余）」也会被判失败，并非仅指超支，解读时需区分。\n")
+    lines.append("> 注：「预算不一致」仅指超支或 daily 勾稽错误；"
+      "已修指标语义——实际花费低于预算上限（有结余）不再判失败。")
 
     # 三、分 case
     lines.append("## 三、分 case 对照\n")

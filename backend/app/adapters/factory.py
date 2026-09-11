@@ -23,31 +23,36 @@ _settings = get_settings()
 
 
 def get_transport_adapter() -> BaseTransportAdapter:
-    if _settings.ADAPTER_MODE == "mock":
-        return MockTransportAdapter()
-    # Real 适配器后续实现
-    raise NotImplementedError("Real transport adapter 尚未实现")
+    if _settings.ADAPTER_MODE == "real":
+        from app.adapters.real.train12306 import Train12306Adapter
+        return Train12306Adapter()
+    return MockTransportAdapter()
 
 
 def get_hotel_adapter() -> BaseHotelAdapter:
-    if _settings.ADAPTER_MODE == "mock":
-        return MockHotelAdapter()
-    raise NotImplementedError("Real hotel adapter 尚未实现")
+    if _settings.ADAPTER_MODE == "real":
+        from app.adapters.real.poi import AmapHotelAdapter
+        return AmapHotelAdapter(_settings.AMAP_API_KEY)
+    return MockHotelAdapter()
 
 
 def get_attraction_adapter() -> BaseAttractionAdapter:
-    if _settings.ADAPTER_MODE == "mock":
-        return MockAttractionAdapter()
-    raise NotImplementedError("Real attraction adapter 尚未实现")
+    if _settings.ADAPTER_MODE == "real":
+        from app.adapters.real.poi import AmapAttractionAdapter
+        return AmapAttractionAdapter(_settings.AMAP_API_KEY)
+    return MockAttractionAdapter()
 
 
 def get_weather_adapter() -> BaseWeatherAdapter:
-    if _settings.ADAPTER_MODE == "mock":
-        return MockWeatherAdapter()
-    raise NotImplementedError("Real weather adapter 尚未实现")
+    if _settings.ADAPTER_MODE == "real":
+        from app.adapters.real.weather import QWeatherAdapter
+        return QWeatherAdapter(_settings.QWEATHER_API_KEY, _settings.QWEATHER_API_HOST)
+    return MockWeatherAdapter()
+
 
 
 def get_restaurant_adapter() -> BaseRestaurantAdapter:
-    if _settings.ADAPTER_MODE == "mock":
-        return MockRestaurantAdapter()
-    raise NotImplementedError("Real restaurant adapter 尚未实现")
+    if _settings.ADAPTER_MODE == "real":
+        from app.adapters.real.poi import AmapRestaurantAdapter
+        return AmapRestaurantAdapter(_settings.AMAP_API_KEY)
+    return MockRestaurantAdapter()

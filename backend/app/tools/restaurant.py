@@ -35,7 +35,8 @@ async def search_restaurants(city: str, cuisine: str = "",
         for i, r in enumerate(results, 1):
             lines.append(
                 f"{i}. {r['name']}（{r['cuisine']}）人均{r['avg_price']}元 "
-                f"评分{r['rating']} 招牌：{r['signature']}"
+                f"评分{r['rating']} 招牌：{r['signature']} "
+                f"坐标：{r.get('lnglat', '无')}"
             )
         return "\n".join(lines)
     except Exception as e:

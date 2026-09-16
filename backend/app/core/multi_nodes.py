@@ -357,36 +357,35 @@ def _norm_place_text(s) -> str:
 def dedup_activities(draft: dict) -> dict:
     """确定性去除重复活动（不信任 LLM 一定不重复）。
 
-    - 同一天内：同名活动、或同一"景点"落在同一地点的重复项，只保留第一条；
-    - 跨天：同一个"景点"不应在不同日期重复游览，只保留首次出现那天；
-    - 住宿（每晚回酒店）、餐饮（每日多餐）、交通属于合理重复，不做跨天去重。
+    - 同一天内：同名活动、或落在同一地点的重复项，只保留第一条；
+    - 跨天：用【全局地点 location】判定，不限活动类别——模型常把重复点
+      改个活动名/换个类别（如餐饮→景点"XX街区漫步"）绕过按类别去重；
+      只要地点在之前某天出现过，就删；
+    - 豁免：住宿（每晚回酒店）、交通（往返车站）、早餐（就近酒店）属合理重复。
     """
     if not draft or not draft.get("days_plan"):
         return draft
-    seen_attr_global: set[str] = set()
+    seen_loc_global: set[str] = set()
+    SKIP_CROSSDAY = {"住宿", "交通"}
     removed = 0
     for day in draft["days_plan"]:
-        seen_day: set[tuple] = set()
+        seen_day: set[str] = set()
         kept = []
         for act in day.get("activities", []):
             cat = act.get("category", "")
-            name_key = _norm_place_text(act.get("name", ""))
+            name = act.get("name", "") or ""
+            name_key = _norm_place_text(name)
             loc_key = _norm_place_text(act.get("location", ""))
-            is_attr = cat == "景点"
-            day_keys = [("n", name_key)]
-            if is_attr and loc_key:
-                day_keys.append(("l", loc_key))
-            day_keys = [k for k in day_keys if k[1]]
+            day_keys = [k for k in (name_key, loc_key) if k]
             if any(k in seen_day for k in day_keys):  # 日内重复
                 removed += 1
                 continue
-            if is_attr:  # 跨天重复景点
-                gkey = name_key or loc_key
-                if gkey and gkey in seen_attr_global:
+            is_breakfast = ("早餐" in name) or ("早饭" in name)
+            if cat not in SKIP_CROSSDAY and loc_key and not is_breakfast:
+                if loc_key in seen_loc_global:  # 跨天同地点（换类别也抓得到）
                     removed += 1
                     continue
-                if gkey:
-                    seen_attr_global.add(gkey)
+                seen_loc_global.add(loc_key)
             seen_day.update(day_keys)
             kept.append(act)
         day["activities"] = kept
@@ -613,6 +612,9 @@ async def intake_node(state: dict) -> dict:
     - 用户说"第二天太赶了"→ non_planning + modify
     - 槽位信息要从上下文推断，用户说"上次说的成都"也算 destination=成都
     - 已有行程时，用户提到的景点名如果出现在【当前已有行程】里，优先判 modify
+    - 【关键】如果用户提到的目的地城市和【当前已有行程】不是同一个城市
+      （例如当前是北京，用户说"上海3日游/去上海玩"），这是一次全新规划，必须判 planning，
+      绝不是 modify；modify 只针对"同一趟行程"的微调，不允许把别的城市当成本趟来改。
     
     【判断示例】
     示例1：
@@ -694,6 +696,24 @@ async def intake_node(state: dict) -> dict:
         "[intake] intent=%s action=%s slots=%s missing=%s",
         result.intent, result.action, result.slots, result.missing_slots,
     )
+
+    # 防误判兜底：模型把"换个新城市"误判成 modify 时，强制改判为全新 planning。
+    # 只看 slots 里有没有一个和当前行程不同的新目的地城市。
+    if result.action == NonPlanningAction.MODIFY:
+        cur_dest = ""
+        for src in ("itinerary", "draft_itinerary", "final_itinerary"):
+            d = (state.get(src) or {}).get("destination", "")
+            if d:
+                cur_dest = d
+                break
+        new_dest = (result.slots or {}).get("destination", "")
+        if new_dest and cur_dest and new_dest not in cur_dest and cur_dest not in new_dest:
+            logger.warning(
+                "[intake] 检测到新目的地 %s ≠ 当前行程 %s，modify 改判为全新 planning",
+                new_dest, cur_dest,
+            )
+            result.intent = Intent.PLANNING
+            result.action = NonPlanningAction.CHAT
 
     result_dict = {
         "intent": result.intent.value,

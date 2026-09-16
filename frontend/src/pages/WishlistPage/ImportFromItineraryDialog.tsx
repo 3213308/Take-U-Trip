@@ -30,11 +30,21 @@ export function ImportFromItineraryDialog({
     const result: Candidate[] = [];
     for (const d of itinerary.days_plan) {
       for (const a of d.activities) {
-        if (a.category !== "景点" || !a.name) continue;
-        const key = `${a.name}::${itinerary.destination}`;
+        if (!a.location) continue;
+        // 模型常把景点标成"交通"（如"前往故宫博物院"），这里把观光站也算候选，
+        // 但排除回酒店/车站/机场这类纯交通端点。
+        const txt = `${a.name}${a.location}`;
+        const isSight =
+          a.category === "景点" ||
+          (a.category === "交通" &&
+            /^(前往|游览|参观|逛)/.test(a.name || "") &&
+            !/酒店|宾馆|旅馆|民宿|住宿|车站|火车站|机场|返程|返回|退房|高铁|地铁/.test(txt));
+        if (!isSight) continue;
+        const dispName = a.location || a.name;
+        const key = `${dispName}::${itinerary.destination}`;
         if (seen.has(key)) continue;
         seen.add(key);
-        result.push({ name: a.name, location: a.location, city: itinerary.destination });
+        result.push({ name: dispName, location: a.location, city: itinerary.destination });
       }
     }
     return result;

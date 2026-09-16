@@ -36,6 +36,8 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(
     const [AMap, setAMap] = useState<any>(null);
     const [map, setMap] = useState<any>(null);
     const [error, setError] = useState("");
+    // 高德底图瓦片是否加载完成；完成前显示加载遮罩，避免灰底上飘着孤立点
+    const [tilesReady, setTilesReady] = useState(false);
 
     const overlaysRef = useRef<{ markers: (any | null)[]; polylines: any[] }>({
       markers: [],
@@ -62,6 +64,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(
           });
           mapInstance.addControl(new amap.Scale());
           mapInstance.addControl(new amap.ToolBar({ position: "RB" }));
+          mapInstance.on("complete", () => setTilesReady(true));
           infoWindowRef.current = new amap.InfoWindow({ offset: new amap.Pixel(0, -32) });
           setAMap(amap);
           setMap(mapInstance);
@@ -300,6 +303,18 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(
 
     // relative z-0 创建独立堆叠上下文：高德内部 marker/InfoWindow 的 z-index（100+）
     // 若不加会与 TripPanel 的 z-10 在页面级竞争，盖住面板导致按钮无法点击
-    return <div ref={containerRef} className="relative z-0 h-full w-full" />;
+    return (
+      <div className="relative z-0 h-full w-full">
+        <div ref={containerRef} className="h-full w-full" />
+        {!tilesReady && (
+          <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-slate-50">
+            <div className="flex flex-col items-center gap-2 text-sm text-slate-400">
+              <span className="h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-brand-500" />
+              地图加载中…
+            </div>
+          </div>
+        )}
+      </div>
+    );
   },
 );
